@@ -3,12 +3,10 @@
 
 #pragma prefast(disable:__WARNING_ENCODE_MEMBER_FUNCTION_POINTER, "Not valid for kernel mode drivers")
 
-PFLT_FILTER gFilterHandle;
 
 //
 //  Assign text sections for each routine.
 //
-
 #ifdef ALLOC_PRAGMA
 #pragma alloc_text(INIT, DriverEntry)
 #pragma alloc_text(PAGE, BaseFileSystemFilterUnload)
@@ -18,35 +16,42 @@ PFLT_FILTER gFilterHandle;
 #pragma alloc_text(PAGE, BaseFileSystemFilterInstanceTeardownComplete)
 #endif
 
+
+//
+// Global context
+//
+PFLT_FILTER gFilterHandle;
 extern FilterGlobalContext g_FilterContext;
+
 
 //
 //  operation registration
 //
-
 CONST FLT_OPERATION_REGISTRATION Callbacks[] = {
+    // File create operation
     { IRP_MJ_CREATE,
       0,
       BaseFileSystemFilterPreOperation,
-      BaseFileSystemFilterPostOperation },
+      nullptr },
 
+    // End of operation list
     { IRP_MJ_OPERATION_END }
 };
+
 
 //
 //  This defines what we want to filter with FltMgr
 //
-
 CONST FLT_REGISTRATION FilterRegistration = {
 
     sizeof( FLT_REGISTRATION ),         //  Size
     FLT_REGISTRATION_VERSION,           //  Version
 
-    // NPFS_MSFS - умение фильтровать именованные каналы и почтовые слоты
-    // DAX_VOLUME - умение фильтовать тома прямого доступа
+    // NPFS_MSFS - enable filter name pipes and mail slots (npfs.sys, msfs.sys);
+    // DAX_VOLUME - minifilter will support attaching to a direct access (DAX) volume.
     FLTFL_REGISTRATION_SUPPORT_NPFS_MSFS | FLTFL_REGISTRATION_SUPPORT_DAX_VOLUME, //  Flags                                 
 
-    NULL,                               //  Context
+    NULL,                               //  Object context
     Callbacks,                          //  Operation callbacks
 
     BaseFileSystemFilterUnload,                           //  MiniFilterUnload
@@ -59,7 +64,6 @@ CONST FLT_REGISTRATION FilterRegistration = {
     NULL,                               //  GenerateFileName
     NULL,                               //  GenerateDestinationFileName
     NULL                                //  NormalizeNameComponent
-
 };
 
 
@@ -215,6 +219,7 @@ Return Value:
 }
 
 
+
 /*************************************************************************
     MiniFilter initialization and unload routines.
 *************************************************************************/
@@ -251,26 +256,29 @@ Return Value:
     WDFDRIVER driver;
 
     //
-    // Инициализируем WPP Tracing
+    // Initialize WPP Tracing
     //
     WPP_INIT_TRACING(DriverObject, RegistryPath);
     TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! Entry");
 
     //
-    // Инициализируем глобальный контекст драйвера
+    // Initialize global driver context
     //
     FilterGlobalContext::init(g_FilterContext);
 
     //
-    // Инициализация wdf драйвера
+    // Initialize WDF driver object
     //
     WDF_OBJECT_ATTRIBUTES_INIT(&driverAttributes);
     driverAttributes.EvtCleanupCallback = EvtWdfDriverContextCleanup;
 
+
     WDF_DRIVER_CONFIG_INIT(&driverConfig, WDF_NO_EVENT_CALLBACK);
-    driverConfig.DriverPoolTag = DRIVER_POOL_TAG;
-    driverConfig.DriverInitFlags |= WdfDriverInitNonPnpDriver;
-    driverConfig.EvtDriverUnload = EvtWdfDriverUnload;
+
+    driverConfig.DriverPoolTag    = DRIVER_POOL_TAG;
+    driverConfig.DriverInitFlags  |= WdfDriverInitNonPnpDriver;    // Driver will be non pnp 
+    driverConfig.EvtDriverUnload  = EvtWdfDriverUnload;
+
 
     status = WdfDriverCreate(
         DriverObject,
@@ -280,29 +288,29 @@ Return Value:
         &driver
     );
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [-] Driver not created");
+        TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [-] WDF Driver object not created, status = %!STATUS!.", status);
         WPP_CLEANUP(DriverObject);
     }
-    TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [+] Driver created");
+
+    TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [+] WDF Driver object created");
 
     //
-    // Создание управляющего устройства
+    // Create control driver object (CDO)
     //
     status = CreateControlDeviceObject(driver);
     if (!NT_SUCCESS(status)) {
-        TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [-] CDO fatal error, status = %!STATUS!.", status);
+        TraceEvents(TRACE_LEVEL_INFORMATION, WPP_DRIVER_TRACE, "%!FUNC! [-] CDO create fatal error, status = %!STATUS!.", status);
         WPP_CLEANUP(DriverObject);
     }
 
-    //
-    //  Регистрация фильтра файловой системы
-    //
 
+    //
+    //  Registrate file system filter 
+    //
     status = FltRegisterFilter( DriverObject,
                                 &FilterRegistration,
                                 &gFilterHandle );
 
-    
 
     FLT_ASSERT( NT_SUCCESS( status ) );
 
@@ -311,7 +319,6 @@ Return Value:
         //
         //  Start filtering i/o
         //
-
         status = FltStartFiltering( gFilterHandle );
 
         if (!NT_SUCCESS( status )) {
@@ -366,6 +373,7 @@ Return Value:
     return STATUS_SUCCESS;
 }
 
+
 void EvtWdfDriverContextCleanup(WDFOBJECT WdfDriver)
 {
     PAGED_CODE();
@@ -375,6 +383,7 @@ void EvtWdfDriverContextCleanup(WDFOBJECT WdfDriver)
 
     WPP_CLEANUP(WdfDriver);
 }
+
 
 void EvtWdfDriverUnload(WDFDRIVER Driver) 
 {

@@ -11,6 +11,49 @@
 FilterGlobalContext g_FilterContext;
 
 
+void FilterGlobalContext::clearContextInterlocked()
+{
+	AutoLock<FastMutex> lock(contextLock);
+	isStoped = true;
+
+	if (targetApplicationName.Buffer != nullptr)
+		RtlFreeUnicodeString(&targetApplicationName);
+
+	targetApplicationName.Buffer = nullptr;
+	targetApplicationName.Length = targetApplicationName.MaximumLength = 0;
+
+
+	while (logItemlistSize > 0)
+	{
+		if (IsListEmpty(&logItemList)) {
+			TraceEvents(TRACE_LEVEL_INFORMATION, WPP_QUEUE_TRACE, "%!FUNC! Critical error: logItemlistSize != 0 for empty list.");
+			break;
+		}
+
+		PLIST_ENTRY entry = RemoveTailList(&logItemList);
+		logItemlistSize--;
+		ExFreePool(entry);
+	}
+}
+
+void FilterGlobalContext::init(FilterGlobalContext& inst)
+{
+	inst.contextLock.Init();
+	InitializeListHead(&inst.logItemList);
+	inst.logItemlistSize = 0;
+
+	inst.targetApplicationName.Length = inst.targetApplicationName.MaximumLength = 0;
+	inst.targetApplicationName.Buffer = nullptr;
+
+	inst.isStoped = true;
+}
+
+void FilterGlobalContext::free(FilterGlobalContext& inst)
+{
+	inst.clearContextInterlocked();
+}
+
+
 NTSTATUS CreateControlDeviceObject(WDFDRIVER WdfDriver)
 {
 	NTSTATUS status = STATUS_SUCCESS;
@@ -77,9 +120,8 @@ NTSTATUS CreateControlDeviceObject(WDFDRIVER WdfDriver)
 
 
 	//
-	// Создание общей очереди для всех запросов
+	// Create default queue for all requests 
 	//
-
 	WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchSequential);
 	queueConfig.EvtIoDeviceControl = EvtWdfIoQueueIoDeviceControl;
 	queueConfig.EvtIoRead = EvtWdfIoQueueIoRead;
@@ -118,5 +160,4 @@ NTSTATUS CreateControlDeviceObject(WDFDRIVER WdfDriver)
 void EvtWdfDeviceCleanup(WDFOBJECT WdfDevice)
 {
 	UNREFERENCED_PARAMETER(WdfDevice);
-	
 }

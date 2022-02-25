@@ -1,26 +1,26 @@
 #pragma once
 
-/*
-	
-*/
+//
+// Passing the name of the application whose actions need to be logged
+//
 #define IOCTL_SET_TARGET_APP CTL_CODE  (FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 
-/*
-	
-*/
+//
+// 
+//
 #define IOCTL_CLEAR			 CTL_CODE  (FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 
-/*
-
-*/
+//
+//
+//
 #define IOCTL_START_LOG		 CTL_CODE  (FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 
-/*
-
-*/
+//
+//
+//
 #define IOCTL_STOP_LOG		 CTL_CODE  (FILE_DEVICE_UNKNOWN, 0x804, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 

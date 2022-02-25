@@ -1,21 +1,20 @@
 #pragma once
 
 #include "ControlDeviceQueue.h"
-#include "WdfClassExtension.h"
+#include "ThreadLockClasses.h"
 
 #define CONTROL_DEVICE_NAME L"\\Device\\FileSysLog"
 #define CONTROL_DEVICE_SYMLINK_NAME L"\\DosDevices\\FileSysLog"
 
 
-
 struct FsOperationEventItem {
 	LIST_ENTRY list;
-
 	FsOperationEvent data;
 };
 
 
 struct FilterGlobalContext {
+public:
 	LIST_ENTRY logItemList;
 	ULONG logItemlistSize;
 	FastMutex contextLock;
@@ -25,35 +24,9 @@ struct FilterGlobalContext {
 	bool isStoped;
 
 
-	void clearTargetAppName()
-	{
-		if (targetApplicationName.Buffer != nullptr)
-			RtlFreeUnicodeString(&targetApplicationName);
-
-		targetApplicationName.Buffer = nullptr;
-		targetApplicationName.Length = targetApplicationName.MaximumLength = 0;
-	}
-
-	static void init(FilterGlobalContext& inst) 
-	{
-		inst.contextLock.Init();
-		InitializeListHead(&inst.logItemList);
-		inst.logItemlistSize = 0;
-
-		inst.targetApplicationName.Length = inst.targetApplicationName.MaximumLength = 0;
-		inst.targetApplicationName.Buffer = nullptr;
-
-		inst.isStoped = true;
-	}
-
-	static void free(FilterGlobalContext& inst)
-	{
-		AutoLock<FastMutex>(inst.contextLock);
-
-		inst.isStoped = true;
-
-		inst.clearTargetAppName();
-	}
+	void clearContextInterlocked();
+	static void init(FilterGlobalContext& inst);
+	static void free(FilterGlobalContext& inst);
 };
 
 EXTERN_C_START

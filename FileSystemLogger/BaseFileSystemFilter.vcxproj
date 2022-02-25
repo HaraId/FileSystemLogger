@@ -196,7 +196,7 @@
     <ClInclude Include="ControlDeviceQueue.h" />
     <ClInclude Include="Public.h" />
     <ClInclude Include="Trace.h" />
-    <ClInclude Include="WdfClassExtension.h" />
+    <ClInclude Include="ThreadLockClasses.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

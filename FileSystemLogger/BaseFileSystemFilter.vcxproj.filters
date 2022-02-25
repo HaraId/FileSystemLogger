@@ -33,6 +33,9 @@
     <ClCompile Include="FilterOperations.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ControlDeviceQueue.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="BaseFileSystemFilter.rc">
@@ -46,16 +49,13 @@
     <ClInclude Include="ControlDevice.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="ControlDeviceQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="ControlDeviceQueue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FilterOperations.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="WdfClassExtension.h">
+    <ClInclude Include="ThreadLockClasses.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Public.h">

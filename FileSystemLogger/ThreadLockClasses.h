@@ -4,20 +4,27 @@
 #include <wdf.h>
 
 
-
-template<class TLock> 
+template<class TLock>
 class AutoLock
 {
 public:
 	AutoLock(TLock& locker) : mLock(locker) {
 		mLock.Lock();
+		mbDeleted = false;
 	}
 	~AutoLock() {
+		if (mbDeleted == false)
+			mLock.Unlock();
+	}
+
+	void free() {
+		mbDeleted = true;
 		mLock.Unlock();
 	}
 
 private:
 	TLock& mLock;
+	bool mbDeleted;
 };
 
 

@@ -34,8 +34,6 @@ std::list<FsOperationEventItem> fsOpEventList;
 
 
 HANDLE attemptOpenKernelDriver(const std::string& DriverSymName, DWORD* Status);
-bool loadNonPnpDriver(const std::string& DriverFileName, const std::string& DriverPath, SC_HANDLE* SCManager, SC_HANDLE* ServiceHandle);
-bool unloadNonPnpDriver(const SC_HANDLE SCManager, const SC_HANDLE ServiceHandle);
 std::string convertUnicodeToAsci(const char* Unicode, const size_t Size);
 char waitToPressAnyKey();
 char wiatToPressСertainKey(const std::string& Keys);
@@ -210,8 +208,8 @@ __exit:
     if (hDriver != INVALID_HANDLE_VALUE)
         CloseHandle(hDriver);
 
-    if (driverWasLoaded)
-        unloadNonPnpDriver(scManager, serviceHandle);
+    //if (driverWasLoaded)
+    //    unloadNonPnpDriver(scManager, serviceHandle);
 
     if (dumpFile)
         dumpAllInfoInFile();
@@ -242,44 +240,6 @@ HANDLE attemptOpenKernelDriver(const std::string& DriverName, DWORD* Status)
     return hHandl;
 }
 
-bool loadNonPnpDriver(const std::string& DriverFileName, const std::string& DriverPath, SC_HANDLE* SCManager, SC_HANDLE* ServiceHandle)
-{
-    SC_HANDLE sch = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (sch == NULL) {
-        // It may be ERROR_ACCESS_DENIED... <- GetLastError();
-        std::cout << "Error (loadNonPnpDriver:OpenSCManager) status: " << GetLastError() << std::endl;
-        return false;
-    }
-
-    SC_HANDLE schService = CreateServiceA(sch, DriverFileName.c_str(),
-        DriverFileName.c_str(), SERVICE_ALL_ACCESS,
-        SERVICE_KERNEL_DRIVER, SERVICE_DEMAND_START, SERVICE_ERROR_NORMAL,
-        DriverPath.c_str(), NULL, NULL, NULL, NULL, NULL);
-    if (schService == NULL) {
-        CloseServiceHandle(sch);
-        std::cout << "Error (loadNonPnpDriver:CreateServiceA) status: " << GetLastError() << std::endl;
-        return false;
-    }
-
-    if (!StartService(schService, NULL, NULL)) {
-        DeleteService(schService) && CloseServiceHandle(schService) && CloseServiceHandle(sch);
-        std::cout << "Error (loadNonPnpDriver:StartService) status: " << GetLastError() << std::endl;
-        return false;
-    }
-
-    *SCManager = sch;
-    *ServiceHandle = schService;
-
-    return true;
-}
-
-bool unloadNonPnpDriver(const SC_HANDLE SCManager, const SC_HANDLE ServiceHandle)
-{
-    SERVICE_STATUS status;
-
-    return ControlService(ServiceHandle, SERVICE_CONTROL_STOP, &status) && DeleteService(ServiceHandle)
-        && CloseServiceHandle(ServiceHandle) && CloseServiceHandle(SCManager);
-}
 
 std::string convertUnicodeToAsci(const char* Unicode, const size_t Size)
 {
@@ -292,9 +252,11 @@ std::string convertUnicodeToAsci(const char* Unicode, const size_t Size)
     return res;
 }
 
+
 char waitToPressAnyKey() {
     return _getch();
 }
+
 
 char wiatToPressСertainKey(const std::string& Keys)
 {
@@ -306,6 +268,7 @@ char wiatToPressСertainKey(const std::string& Keys)
     }
 }
 
+
 std::string GetAbsFilePath(const std::string& FileName)
 {
     char fullPath[MAX_PATH];
@@ -315,6 +278,7 @@ std::string GetAbsFilePath(const std::string& FileName)
 
     return std::string(fullPath);
 }
+
 
 void parseReceiveData(const unsigned char* Data, const size_t Size)
 {
@@ -343,6 +307,7 @@ void dumpAllInfoInFile()
     for (auto elem : fsOpEventList)
         fout << elem << std::endl;
 }
+
 
 bool logStart(HANDLE hDriver)
 {

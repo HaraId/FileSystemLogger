@@ -8,6 +8,7 @@
 #pragma alloc_text(PAGE, EvtWdfIoQueueIoDeviceControl)
 #endif
 
+// Driver global context
 extern FilterGlobalContext g_FilterContext;
 
 
@@ -25,6 +26,7 @@ void EvtWdfIoQueueIoRead(
 	size_t bufferSize;
 	size_t bufferWriteOffset = 0;
 
+
 	TraceEvents(TRACE_LEVEL_INFORMATION, WPP_QUEUE_TRACE, "%!FUNC! Entry");
 
 	status = WdfRequestRetrieveOutputBuffer(Request, MIN_RECIVE_BUFFER_SIZE, (PVOID*)&buffer, &bufferSize);
@@ -36,7 +38,6 @@ void EvtWdfIoQueueIoRead(
 
 
 	AutoLock<FastMutex> lock(g_FilterContext.contextLock);
-
 	while (g_FilterContext.logItemlistSize > 0)
 	{
 		if (IsListEmpty(&g_FilterContext.logItemList)) {
@@ -44,14 +45,14 @@ void EvtWdfIoQueueIoRead(
 			break;
 		}
 
-		// Получаем последний элемент в списке
+		// Get last list entry
 		const FsOperationEventItem* item = (FsOperationEventItem*)CONTAINING_RECORD(g_FilterContext.logItemList.Blink, FsOperationEventItem, list);
 
-		// Если места в пользовательском буфере больше не осталось, то переходим к отправке
+		// User buffer is filled, goto sending
 		if (item->data.size > bufferSize - bufferWriteOffset)
 			break;
 
-		// Удаляем последний элемент из списка
+		// Remove last list item
 		PLIST_ENTRY entry = RemoveTailList(&g_FilterContext.logItemList);
 		g_FilterContext.logItemlistSize--;
 
@@ -113,32 +114,28 @@ void EvtWdfIoQueueIoDeviceControl(
 		ansiAppName.Length = ansiAppName.MaximumLength = USHORT(InputBufferLength);
 		ansiAppName.Buffer = buffer;
 		
-		AutoLock<FastMutex>(g_FilterContext.contextLock);
+		g_FilterContext.clearContextInterlocked();
 
-		g_FilterContext.isStoped = true;
-
-		g_FilterContext.clearTargetAppName();
-
+		AutoLock<FastMutex> lock(g_FilterContext.contextLock);
 		RtlAnsiStringToUnicodeString(&g_FilterContext.targetApplicationName, &ansiAppName, TRUE); // auto memory allocation
 	}
 
 	else if (IOCTL_CLEAR == IoControlCode)
 	{
-
+		g_FilterContext.clearContextInterlocked();
 	}
 
 	else if (IOCTL_START_LOG == IoControlCode)
 	{
-		AutoLock<FastMutex>(g_FilterContext.contextLock);
+		AutoLock<FastMutex> lock(g_FilterContext.contextLock);
 		g_FilterContext.isStoped = false;
 	}
 
 	else if (IOCTL_STOP_LOG == IoControlCode)
 	{
-		AutoLock<FastMutex>(g_FilterContext.contextLock);
+		AutoLock<FastMutex> lock(g_FilterContext.contextLock);
 		g_FilterContext.isStoped = true;
 	}
-
 
 	WdfRequestComplete(Request, STATUS_SUCCESS);
 }
